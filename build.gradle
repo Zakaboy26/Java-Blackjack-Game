@@ -1,0 +1,121 @@
+plugins {
+    id 'java'
+    id 'jacoco'
+    id 'checkstyle'
+    id 'idea'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '7.1.0'
+    id 'info.solidsoft.pitest' version '1.7.0'
+
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 11
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    implementation 'org.apache.logging.log4j:log4j-api:2.17.1'
+    implementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.1'
+
+
+    testImplementation(platform('org.junit:junit-bom:5.8.2'))
+    testImplementation('org.junit.jupiter:junit-jupiter:5.8.2')
+    testImplementation('org.mockito:mockito-core:4.1.0')
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.8.2")
+
+
+    testImplementation group: 'com.github.valfirst', name: 'slf4j-test', version: '2.5.0'
+    testImplementation group: 'org.assertj', name: 'assertj-core', version: '3.22.0' //include for slf4j-test
+
+
+
+}
+
+//test configuration
+test{
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+//application configuration
+
+run{
+    standardInput = System.in
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.cm6123.wormhole.app.Application'
+    }
+    from sourceSets.main.allSource
+
+}
+
+application {
+    mainClassName = 'com.cm6123.wormhole.app.Application'
+
+}
+
+//tool configuration
+checkstyle {
+    toolVersion = 9.2
+    checkstyleMain.enabled = true
+    checkstyleTest.enabled = false
+}
+
+checkstyleMain {
+    configFile = file("config/checkstyle/checkstyleMain.xml")
+    maxErrors = 100
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled false
+        csv.enabled false
+        html.destination file("${buildDir}/jacocoHtml")
+    }
+}
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            element = 'CLASS'
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.6
+            }
+            excludes = [
+                    'com.cm6123.wormhole.app.*'
+            ]
+        }
+    }
+}
+check.dependsOn jacocoTestCoverageVerification
+// create combined task
+task buildAndReport {
+    dependsOn build, jacocoTestReport
+}
+
+pitest {
+    targetClasses = ['uk.ac.cf.cm6123.blackjack.*']  //by default "${project.group}.*"
+    //pitestVersion = '1.4.1' //not needed when a default PIT version should be used
+    threads = 4
+    outputFormats = ['XML', 'HTML']
+    timestampedReports = false
+    junit5PluginVersion = '0.15'
+}
+
+check.dependsOn("pitest") //comment this line out if your build fails with the 'CoverageMinion' error.
+
+
+rootProject.tasks.named("jar") {
+    duplicatesStrategy = 'include'
+}
